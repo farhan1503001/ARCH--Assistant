@@ -171,6 +171,41 @@
   button.send svg { width: 18px; height: 18px; }
   .hint { font-size: 12px; color: var(--text-faint); text-align: center; margin-top: 8px; }
 
+  /* attached files */
+  .box { padding-left: 6px; }
+  button.attach {
+    background: none; border: none; color: var(--text-faint); cursor: pointer;
+    width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  button.attach:hover { color: var(--pink); background: var(--pink-soft); }
+  button.attach:disabled { opacity: 0.35; cursor: default; background: none; color: var(--text-faint); }
+  button.attach svg { width: 18px; height: 18px; }
+  .files { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .files:empty { display: none; }
+  .landing .files { justify-content: center; }
+  .fchip {
+    display: inline-flex; align-items: center; gap: 7px; max-width: 320px;
+    background: var(--bg-input); border: 1px solid var(--border); border-radius: 9px;
+    padding: 5px 6px 5px 9px; font-size: 13px; color: var(--text-dim);
+  }
+  .fchip svg { width: 15px; height: 15px; color: var(--pink); flex-shrink: 0; }
+  .fchip .fn { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--text); }
+  .fchip .fm { color: var(--text-faint); white-space: nowrap; }
+  .fchip .x { background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 3px; font-family: inherit; }
+  .fchip .x:hover { color: var(--pink); }
+  .fchip.loading { border-style: dashed; }
+  .fchip .spin { width: 13px; height: 13px; border: 2px solid var(--border-strong); border-top-color: var(--pink); border-radius: 50%; animation: spin .8s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ferr { flex-basis: 100%; font-size: 12.5px; color: var(--warn); }
+  .landing .ferr { text-align: center; }
+  main.dragging::after {
+    content: 'Drop a PDF, DOCX, TXT or MD file to attach it to this chat';
+    position: absolute; inset: 12px; border: 2px dashed var(--pink); border-radius: 14px;
+    background: rgba(15, 15, 17, 0.88); color: var(--text); font-size: 15px;
+    display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 5;
+  }
+
   /* learning modes */
   .modes { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; flex-wrap: wrap; }
   .landing .modes { justify-content: center; }
@@ -217,13 +252,18 @@
 <template id="composerTpl">
   <div class="composer" id="composer">
     <div class="modes" id="modes" role="group" aria-label="Learning mode"></div>
+    <div class="files" id="files" aria-live="polite"></div>
     <div class="box">
+      <button class="attach" id="attach" type="button" title="Attach a PDF, DOCX, TXT or MD file" aria-label="Attach a file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      </button>
+      <input type="file" id="filepick" accept=".pdf,.docx,.txt,.md" multiple hidden>
       <textarea id="input" rows="1" placeholder="Ask anything…"></textarea>
       <button class="send" id="send" title="Send">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
       </button>
     </div>
-    <div class="hint">Enter to send · Shift+Enter for a new line · The assistant can be wrong, check anything important.</div>
+    <div class="hint">Enter to send · Shift+Enter for a new line · Attach files with the clip or by dropping them here · The assistant can be wrong, check anything important.</div>
   </div>
 </template>
 
@@ -244,6 +284,9 @@ const REFUSALS = [
 let chats = [];      // [{id, title, created, updated}]
 let current = null;  // {id, title, created, mode, messages:[...]} or null
 let busy = false;
+let files = [];      // files attached to the current chat: [{id, name, pages, size, chars}]
+let uploading = null;   // name of the file being read, or null
+let fileError = '';
 
 /* ---------- learning modes ---------- */
 let MODES = [{ id: 'explain', label: 'Explain', description: '', placeholder: 'Ask anything…', chips: [] }];
@@ -270,6 +313,9 @@ const input = composer.querySelector('#input');
 const sendBtn = composer.querySelector('#send');
 
 const modesEl = composer.querySelector('#modes');
+const filesEl = composer.querySelector('#files');
+const attachBtn = composer.querySelector('#attach');
+const filePick = composer.querySelector('#filepick');
 
 function renderModes() {
   modesEl.innerHTML = '';
@@ -303,6 +349,13 @@ function setMode(id) {
   if (chipsEl) renderChips(chipsEl);
   input.focus();
 }
+
+function setBusy(on) {
+  busy = on;
+  sendBtn.disabled = on; attachBtn.disabled = on;
+  modesEl.querySelectorAll('.mode').forEach(b => b.disabled = on);
+}
+function hasUserMessages() { return !!(current && current.messages.some(m => m.role === 'user')); }
 
 sendBtn.onclick = () => send();
 input.addEventListener('keydown', e => {
@@ -422,7 +475,8 @@ function sourcesEl(sources) {
   const ol = document.createElement('ol');
   for (const s of sources) {
     const li = document.createElement('li');
-    li.textContent = s.title + (s.page ? ', p.' + s.page : '') + (s.heading ? ' — ' + s.heading : '');
+    li.textContent = (s.kind === 'file' ? '📎 ' : '') + s.title + (s.page ? ', p.' + s.page : '') +
+                     (s.heading && s.heading !== 'full text' ? ' — ' + s.heading : '');
     ol.appendChild(li);
   }
   d.appendChild(sum); d.appendChild(ol);
@@ -452,7 +506,7 @@ function addMsg(role, text, kind, sources, mode) {
 }
 
 function renderChat() {
-  if (!current || current.messages.length === 0) {
+  if (!hasUserMessages()) {
     if (!current) currentMode = recalledMode();
     renderLanding(); return;
   }
@@ -482,13 +536,120 @@ function renderHistory() {
 }
 
 /* ---------- chat actions ---------- */
-function newChat() { current = null; renderChat(); renderHistory(); }
-async function openChat(id) { current = await loadChat(id); renderChat(); renderHistory(); }
+function newChat() {
+  if (busy) return;
+  current = null; files = []; fileError = '';
+  renderChat(); renderFiles(); renderHistory();
+}
+async function openChat(id) {
+  if (busy) return;
+  current = await loadChat(id); fileError = '';
+  await loadFiles(); renderChat(); renderFiles(); renderHistory();
+}
 async function deleteChat(id) {
+  if (busy) return;
   await removeChat(id);
-  if (current && current.id === id) current = null;
+  if (current && current.id === id) { current = null; files = []; renderFiles(); }
   renderChat(); renderHistory();
 }
+
+/* ---------- attached files ---------- */
+const FILE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+const UPLOAD_TYPES = ['pdf', 'docx', 'txt', 'md'];
+const UPLOAD_MAX_MB = 50;
+
+async function loadFiles() {
+  files = [];
+  if (!current) return;
+  try { const r = await fetch('/api/chats/' + current.id + '/files'); if (r.ok) files = await r.json(); } catch {}
+}
+
+function renderFiles() {
+  filesEl.innerHTML = '';
+  for (const f of files) {
+    const c = document.createElement('span');
+    c.className = 'fchip'; c.title = f.name;
+    c.innerHTML = FILE_ICON;
+    const n = document.createElement('span'); n.className = 'fn'; n.textContent = f.name;
+    const m = document.createElement('span'); m.className = 'fm'; m.textContent = f.pages ? f.pages + ' pages' : '';
+    const x = document.createElement('button'); x.className = 'x'; x.type = 'button';
+    x.textContent = '×'; x.title = 'Remove from this chat'; x.disabled = busy;
+    x.onclick = () => removeFile(f);
+    c.append(n, m, x);
+    filesEl.appendChild(c);
+  }
+  if (uploading) {
+    const c = document.createElement('span');
+    c.className = 'fchip loading';
+    const sp = document.createElement('span'); sp.className = 'spin';
+    const n = document.createElement('span'); n.className = 'fn'; n.textContent = 'Reading ' + uploading + '…';
+    c.append(sp, n);
+    filesEl.appendChild(c);
+  }
+  if (fileError) {
+    const e = document.createElement('span'); e.className = 'ferr'; e.textContent = fileError;
+    filesEl.appendChild(e);
+  }
+}
+
+function addFileNote(text) {
+  current.messages.push({ role: 'note', content: text });
+  if (hasUserMessages()) addNote(text);
+}
+
+async function uploadFiles(list) {
+  for (const f of Array.from(list)) await uploadFile(f);
+}
+
+async function uploadFile(file) {
+  if (busy) return;
+  fileError = '';
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!UPLOAD_TYPES.includes(ext)) {
+    fileError = file.name + ': only PDF, DOCX, TXT and MD files can be attached.'; renderFiles(); return;
+  }
+  if (file.size > UPLOAD_MAX_MB * 1024 * 1024) {
+    fileError = file.name + ': larger than ' + UPLOAD_MAX_MB + ' MB.'; renderFiles(); return;
+  }
+  setBusy(true);
+  uploading = file.name; renderFiles();
+  try {
+    ensureChat(file.name);
+    await saveCurrent();                       // the server needs the chat to exist first
+    renderHistory();
+    const r = await fetch('/api/chats/' + current.id + '/files?name=' + encodeURIComponent(file.name),
+                          { method: 'POST', body: file });
+    let d = {};
+    try { d = await r.json(); } catch {}
+    if (!r.ok) throw new Error(d.error || ('upload failed (' + r.status + ')'));
+    files.push(d);
+    addFileNote('Attached ' + d.name + (d.pages ? ' (' + d.pages + ' pages)' : ''));
+    await saveCurrent();
+  } catch (e) {
+    fileError = file.name + ': ' + (e.message === 'Failed to fetch'
+      ? "couldn't reach the assistant. Make sure it's running." : e.message);
+  }
+  uploading = null;
+  setBusy(false);
+  renderFiles(); renderHistory();
+  input.focus();
+}
+
+async function removeFile(f) {
+  if (busy || !current) return;
+  try {
+    const r = await fetch('/api/chats/' + current.id + '/files/' + f.id, { method: 'DELETE' });
+    if (!r.ok && r.status !== 404) throw new Error('server returned ' + r.status);
+  } catch (e) { fileError = "Couldn't remove " + f.name + '.'; renderFiles(); return; }
+  files = files.filter(x => x.id !== f.id);
+  fileError = '';
+  addFileNote('Removed ' + f.name);
+  renderFiles();
+  await saveCurrent();
+}
+
+attachBtn.onclick = () => { if (!busy) filePick.click(); };
+filePick.onchange = () => { const l = Array.from(filePick.files); filePick.value = ''; uploadFiles(l); };
 function ensureChat(firstText) {
   if (current) return;
   current = {
@@ -503,12 +664,15 @@ async function send(text) {
   text = (text !== undefined ? text : input.value).trim();
   if (!text) return;
 
-  busy = true; sendBtn.disabled = true; modesEl.querySelectorAll('.mode').forEach(b => b.disabled = true);
+  setBusy(true); fileError = ''; renderFiles();
   input.value = ''; input.style.height = 'auto';
 
-  const wasLanding = !current || current.messages.length === 0;
+  const wasLanding = !hasUserMessages();
   ensureChat(text);
-  if (wasLanding) { wrap.innerHTML = ''; placeComposer('footer'); }
+  if (wasLanding) {
+    wrap.innerHTML = ''; placeComposer('footer');
+    for (const m of current.messages) if (m.role === 'note') addNote(m.content);   // e.g. "Attached paper.pdf"
+  }
 
   addMsg('user', text);
   current.messages.push({ role: 'user', content: text });
@@ -524,7 +688,7 @@ async function send(text) {
   try {
     const r = await fetch('/v1/chat/completions', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'cvex-ai', messages: context, mode })
+      body: JSON.stringify({ model: 'cvex-ai', messages: context, mode, chat_id: current.id })
     });
     if (!r.ok) throw new Error('server returned ' + r.status);
     const data = await r.json();
@@ -547,12 +711,24 @@ async function send(text) {
   }
 
   await saveCurrent(); renderHistory();
-  busy = false; sendBtn.disabled = false; modesEl.querySelectorAll('.mode').forEach(b => b.disabled = false);
+  setBusy(false); renderFiles();
   input.focus(); scroll();
 }
 
 /* ---------- wiring ---------- */
 document.getElementById('newchat').onclick = newChat;
+
+const mainEl = document.querySelector('main');
+let dragDepth = 0;
+const hasFiles = e => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+mainEl.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; mainEl.classList.add('dragging'); });
+mainEl.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+mainEl.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; mainEl.classList.remove('dragging'); } });
+mainEl.addEventListener('drop', e => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); dragDepth = 0; mainEl.classList.remove('dragging');
+  if (!busy) uploadFiles(e.dataTransfer.files);
+});
 document.addEventListener('click', e => {
   if (e.target.classList.contains('chip')) send(e.target.textContent);
 });
