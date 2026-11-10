@@ -1,0 +1,49 @@
+{
+  "refusal_message": "I can't help with that request.",
+  "output_refusal_message": "That response was blocked by the safety filter. Please rephrase your question.",
+  "blocked_input_patterns": [
+    {
+      "name": "us_ssn",
+      "regex": "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+    },
+    {
+      "name": "credit_card",
+      "regex": "\\b(?:\\d[ -]?){13,16}\\b"
+    },
+    {
+      "name": "prompt_injection",
+      "regex": "(?i)\\b(ignore|disregard|forget|override)\\b.{0,40}\\b(instructions?|rules?|guidelines?|system prompt|prompt)\\b"
+    },
+    {
+      "name": "prompt_extraction",
+      "regex": "(?i)\\b(print|show|reveal|repeat|display|output|tell me|what (is|are|were))\\b.{0,40}\\b(system prompt|your (instructions|rules|guidelines|prompt)|initial prompt|hidden prompt)"
+    },
+    {
+      "name": "persona_override",
+      "regex": "(?i)\\b(you are now|from now on you are|act as if you have no|pretend (you have|there are) no|jailbreak|developer mode|DAN mode)\\b"
+    }
+  ],
+  "blocked_output_patterns": [
+    {
+      "name": "us_ssn",
+      "regex": "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+    },
+    {
+      "name": "api_key_like",
+      "regex": "\\b(sk|AKIA)[A-Za-z0-9_-]{16,}\\b"
+    }
+  ],
+  "shieldgemma": {
+    "enabled": true,
+    "model": "shieldgemma",
+    "check_input": true,
+    "check_output": true,
+    "academic_exemption": "IMPORTANT CONTEXT: This assistant serves a university humanities research center. Scholarly analysis, historical explanation, critical discussion, and teaching about difficult subjects is expected and permitted. Describing, analyzing, quoting, or explaining harmful rhetoric, historical atrocities, violence, discrimination, extremist propaganda, or abuse for the purpose of study, teaching, journalism, or critique does NOT violate these policies. Only content that endorses, promotes, incites, or provides practical assistance toward harm violates them. Judge the purpose and framing, not merely the subject matter.",
+    "policies": [
+      "\"No Dangerous Content\": The content shall not provide practical instructions or encouragement for harming oneself or others, such as usable instructions for building weapons or explosives, promotion of terrorism, or encouragement of suicide or self-harm. Historical, analytical, journalistic, fictional, and educational discussion of these subjects is permitted.",
+      "\"No Harassment\": The content shall not be malicious, intimidating, bullying, or abusive toward a specific individual, such as threats of violence or targeted degradation. Discussing, analyzing, or quoting harassment as a subject of study is permitted.",
+      "\"No Hate Speech\": The content shall not endorse, promote, or incite hatred, discrimination, or violence against people on the basis of race, ethnicity, religion, disability, age, nationality, veteran status, sexual orientation, gender, gender identity, caste, or other protected status. Scholarly analysis of hate speech, propaganda, dehumanizing rhetoric, slurs, discrimination, and historical atrocities, including quoting or describing such material to explain or critique it, is permitted and is NOT a violation.",
+      "\"No Sexually Explicit Information\": The content shall not contain graphic sexual descriptions intended to cause arousal. Medical and scientific terminology, sex education, and scholarly or literary discussion of sexuality are permitted."
+    ]
+  }
+}

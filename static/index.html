@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCH Assistant</title>
+<link rel="icon" href="/static/arch-logo.png">
+<link rel="stylesheet" href="/static/vendor/katex/katex.min.css">
+<script src="/static/vendor/katex/katex.min.js"></script>
+<script src="/static/vendor/katex/auto-render.min.js"></script>
+<script src="/static/vendor/marked.min.js"></script>
+<script src="/static/vendor/purify.min.js"></script>
+<style>
+  :root {
+    --bg: #0f0f11;
+    --bg-side: #141416;
+    --bg-input: #1c1c1f;
+    --bg-user: #1e1e22;
+    --border: #26262a;
+    --border-strong: #3a3a40;
+    --text: #ebe9e3;
+    --text-dim: #a3a39c;
+    --text-faint: #6e6e6a;
+    --pink: #e8577a;
+    --pink-soft: rgba(232, 87, 122, 0.12);
+    --maroon: #7a1717;
+    --warn: #e0a56b;
+    --warn-bg: rgba(224, 165, 107, 0.10);
+    --ok: #57b56b;
+    --r: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 15.5px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
+    display: flex; overflow: hidden;
+  }
+  ::selection { background: var(--pink-soft); }
+
+  /* ================= sidebar ================= */
+  aside {
+    width: 240px; flex-shrink: 0;
+    background: var(--bg-side); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .side-top { padding: 14px 12px 8px; display: flex; flex-direction: column; gap: 8px; }
+  .side-brand { display: flex; align-items: center; gap: 9px; padding: 2px 6px 6px; }
+  .side-brand img { height: 26px; width: auto; }
+  .side-brand span { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--text-dim); }
+
+  .newchat {
+    width: 100%; padding: 9px 12px;
+    background: var(--bg-input); color: var(--text);
+    border: 1px solid var(--border); border-radius: 9px;
+    font: inherit; font-size: 14px; cursor: pointer; text-align: left;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .newchat:hover { border-color: var(--border-strong); }
+  .newchat .plus { color: var(--pink); font-weight: 600; font-size: 17px; line-height: 1; }
+
+  #hist { flex: 1; overflow-y: auto; padding: 4px 8px 8px; min-height: 0; }
+  .hlabel { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); padding: 10px 8px 4px; }
+  .hitem {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 10px; border-radius: 7px; cursor: pointer;
+    font-size: 14px; color: var(--text-dim);
+  }
+  .hitem:hover { background: var(--bg-input); color: var(--text); }
+  .hitem.active { background: var(--pink-soft); color: var(--text); }
+  .hitem .t { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .hitem .x { opacity: 0; color: var(--text-faint); background: none; border: none; font-size: 16px; cursor: pointer; padding: 0 2px; line-height: 1; font-family: inherit; }
+  .hitem:hover .x { opacity: 1; }
+  .hitem .x:hover { color: var(--pink); }
+  .hempty { color: var(--text-faint); font-size: 13px; padding: 6px 10px; }
+
+  .side-foot { border-top: 1px solid var(--border); padding: 12px; }
+  .siucard { background: #fff; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: center; }
+  .siucard img { height: 52px; width: auto; display: block; }
+  .side-foot .status { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-faint); margin-top: 10px; padding: 0 2px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); flex-shrink: 0; }
+  .dot.ok { background: var(--ok); }
+  .dot.bad { background: #c44; }
+
+  /* ================= main ================= */
+  main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+
+  #log { flex: 1; overflow-y: auto; padding: 28px 24px 12px; min-height: 0; }
+  .wrap { max-width: 800px; margin: 0 auto; }
+
+  /* landing */
+  .landing {
+    min-height: 100%; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 8vh 0 6vh;
+  }
+  .landing img { width: 150px; height: auto; margin-bottom: 18px; }
+  .landing .tag { font-size: 16px; color: var(--text-dim); max-width: 520px; margin: 0 0 6px; }
+  .landing .sub { font-size: 13px; color: var(--text-faint); margin: 0 0 26px; }
+  .landing .composer-slot { width: 100%; max-width: 680px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 18px; }
+  .chip {
+    border: 1px solid var(--border); background: none; color: var(--text-dim);
+    border-radius: 999px; padding: 7px 14px; font-size: 13.5px; cursor: pointer; font-family: inherit;
+  }
+  .chip:hover { border-color: var(--pink); color: var(--pink); background: var(--pink-soft); }
+
+  /* messages */
+  .msg { margin-bottom: 22px; }
+  .who { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); margin-bottom: 6px; }
+  .msg.user .who { color: var(--pink); }
+  .body { word-wrap: break-word; }
+  .msg.user .body { white-space: pre-wrap; }
+  .msg.bot .body > :first-child { margin-top: 0; }
+  .msg.bot .body > :last-child { margin-bottom: 0; }
+  .msg.bot .body p, .msg.bot .body ul, .msg.bot .body ol { margin: 0 0 12px; }
+  .msg.bot .body li { margin: 3px 0; }
+  .msg.bot .body h1, .msg.bot .body h2, .msg.bot .body h3 { font-size: 1.05em; font-weight: 600; margin: 18px 0 8px; color: var(--text); }
+  .msg.bot .body strong { font-weight: 600; color: var(--text); }
+  .msg.bot .body code { font: 0.9em/1.4 Consolas, "Cascadia Code", monospace; background: var(--bg-input); padding: 1px 5px; border-radius: 4px; }
+  .msg.bot .body pre { background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 0 0 12px; }
+  .msg.bot .body pre code { background: none; padding: 0; }
+  .msg.bot .body blockquote { border-left: 3px solid var(--border-strong); margin: 0 0 12px; padding: 2px 0 2px 14px; color: var(--text-dim); }
+  .msg.bot .body table { border-collapse: collapse; margin: 0 0 12px; font-size: 0.95em; }
+  .msg.bot .body th, .msg.bot .body td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+  .msg.bot .body th { background: var(--bg-input); }
+  .msg.bot .body a { color: var(--pink); }
+  .msg.bot .body .katex-display { margin: 14px 0; overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+  .msg.bot .body .katex { font-size: 1.08em; }
+  .msg.bot .body hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .msg.user .body { background: var(--bg-user); border-radius: var(--r); padding: 12px 15px; }
+  .msg.blocked .body { background: var(--warn-bg); border-left: 3px solid var(--warn); border-radius: 0 8px 8px 0; padding: 12px 15px; color: var(--warn); font-size: 14.5px; }
+  .msg.error .body { border: 1px dashed var(--border-strong); border-radius: 8px; padding: 12px 15px; color: var(--text-dim); font-size: 14.5px; }
+  .sources { margin-top: 8px; font-size: 12.5px; color: var(--text-faint); }
+  .sources summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; }
+  .sources summary::-webkit-details-marker { display: none; }
+  .sources summary::before { content: '▸'; font-size: 10px; transition: transform .15s; }
+  .sources[open] summary::before { transform: rotate(90deg); }
+  .sources ol { margin: 6px 0 0; padding-left: 20px; color: var(--text-dim); }
+  .sources li { margin: 2px 0; }
+
+  .thinking { display: inline-flex; gap: 4px; align-items: center; height: 22px; }
+  .thinking span { width: 6px; height: 6px; border-radius: 50%; background: var(--pink); animation: blink 1.2s infinite; }
+  .thinking span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%, 60%, 100% { opacity: 0.2; } 30% { opacity: 1; } }
+
+  /* composer */
+  footer { padding: 8px 24px 16px; flex-shrink: 0; }
+  footer.hidden { display: none; }
+  .composer { max-width: 800px; margin: 0 auto; }
+  .box {
+    display: flex; align-items: flex-end; gap: 8px;
+    background: var(--bg-input); border: 1px solid var(--border); border-radius: 14px;
+    padding: 8px 8px 8px 14px;
+  }
+  .box:focus-within { border-color: var(--border-strong); }
+  textarea {
+    flex: 1; resize: none; font: inherit; color: var(--text); background: none; border: none;
+    padding: 6px 0; max-height: 200px; min-height: 26px; line-height: 1.5;
+  }
+  textarea:focus { outline: none; }
+  textarea::placeholder { color: var(--text-faint); }
+  button.send {
+    background: var(--pink); color: #fff; border: none; border-radius: 9px;
+    width: 36px; height: 36px; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  button.send:hover { filter: brightness(1.1); }
+  button.send:disabled { opacity: 0.35; cursor: default; filter: none; }
+  button.send svg { width: 18px; height: 18px; }
+  .hint { font-size: 12px; color: var(--text-faint); text-align: center; margin-top: 8px; }
+
+  /* learning modes */
+  .modes { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; flex-wrap: wrap; }
+  .landing .modes { justify-content: center; }
+  .mode {
+    border: 1px solid var(--border); background: none; color: var(--text-dim);
+    border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .mode:hover { color: var(--text); border-color: var(--border-strong); }
+  .mode.on { color: var(--pink); border-color: var(--pink); background: var(--pink-soft); }
+  .mode:disabled { opacity: 0.5; cursor: default; }
+  .mode:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+  .mode-desc { font-size: 12.5px; color: var(--text-faint); margin-left: 4px; }
+  .landing .mode-desc { flex-basis: 100%; text-align: center; margin: 2px 0 0; }
+  .who .mtag { color: var(--pink); font-weight: 600; }
+  .note { text-align: center; font-size: 12px; color: var(--text-faint); margin: -4px 0 20px; letter-spacing: 0.03em; }
+  @media (max-width: 720px) { .footer-desc { display: none; } }
+
+  @media (max-width: 720px) { aside { display: none; } }
+</style>
+</head>
+<body>
+
+<aside>
+  <div class="side-top">
+    <div class="side-brand"><img src="/static/arch-logo.png" alt=""><span>ARCH Assistant</span></div>
+    <button class="newchat" id="newchat"><span class="plus">+</span> New chat</button>
+  </div>
+  <div id="hist"></div>
+  <div class="side-foot">
+    <div class="siucard"><img src="/static/siu-logo.png" alt="Southern Illinois University Carbondale"></div>
+    <div class="status"><span class="dot" id="dot"></span><span id="status">connecting…</span></div>
+  </div>
+</aside>
+
+<main>
+  <div id="log"><div class="wrap" id="wrap"></div></div>
+
+  <footer id="footer" class="hidden">
+    <div id="footerSlot"></div>
+  </footer>
+</main>
+
+<!-- The composer is one element that moves between the landing page and the footer -->
+<template id="composerTpl">
+  <div class="composer" id="composer">
+    <div class="modes" id="modes" role="group" aria-label="Learning mode"></div>
+    <div class="box">
+      <textarea id="input" rows="1" placeholder="Ask anything…"></textarea>
+      <button class="send" id="send" title="Send">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      </button>
+    </div>
+    <div class="hint">Enter to send · Shift+Enter for a new line · The assistant can be wrong, check anything important.</div>
+  </div>
+</template>
+
+<script>
+const log = document.getElementById('log');
+const wrap = document.getElementById('wrap');
+const footer = document.getElementById('footer');
+const dot = document.getElementById('dot');
+const statusEl = document.getElementById('status');
+const histEl = document.getElementById('hist');
+
+// Refusal strings must match policy.json
+const REFUSALS = [
+  "I can't help with that request.",
+  "That response was blocked by the safety filter."
+];
+
+let chats = [];      // [{id, title, created, updated}]
+let current = null;  // {id, title, created, mode, messages:[...]} or null
+let busy = false;
+
+/* ---------- learning modes ---------- */
+let MODES = [{ id: 'explain', label: 'Explain', description: '', placeholder: 'Ask anything…', chips: [] }];
+let DEFAULT_MODE = 'explain';
+let currentMode = 'explain';
+const LAST_MODE_KEY = 'arch-last-mode';      // per-browser convenience only
+
+function modeById(id) { return MODES.find(m => m.id === id) || MODES[0]; }
+function rememberMode(id) { try { localStorage.setItem(LAST_MODE_KEY, id); } catch {} }
+function recalledMode() {
+  try { const v = localStorage.getItem(LAST_MODE_KEY); if (v && MODES.some(m => m.id === v)) return v; } catch {}
+  return DEFAULT_MODE;
+}
+async function loadModes() {
+  try {
+    const d = await (await fetch('/api/modes')).json();
+    if (Array.isArray(d.modes) && d.modes.length) { MODES = d.modes; DEFAULT_MODE = d.default || MODES[0].id; }
+  } catch (e) { console.warn('could not load modes', e); }
+}
+
+/* ---------- composer (single instance, relocated) ---------- */
+const composer = document.getElementById('composerTpl').content.firstElementChild.cloneNode(true);
+const input = composer.querySelector('#input');
+const sendBtn = composer.querySelector('#send');
+
+const modesEl = composer.querySelector('#modes');
+
+function renderModes() {
+  modesEl.innerHTML = '';
+  for (const m of MODES) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'mode' + (m.id === currentMode ? ' on' : '');
+    b.textContent = m.label; b.title = m.description || '';
+    b.setAttribute('aria-pressed', m.id === currentMode ? 'true' : 'false');
+    b.onclick = () => setMode(m.id);
+    modesEl.appendChild(b);
+  }
+  const desc = document.createElement('span');
+  desc.className = 'mode-desc' + (footer.classList.contains('hidden') ? '' : ' footer-desc');
+  desc.textContent = modeById(currentMode).description || '';
+  modesEl.appendChild(desc);
+  input.placeholder = modeById(currentMode).placeholder || 'Ask anything…';
+}
+
+function setMode(id) {
+  if (busy || id === currentMode) return;
+  currentMode = id;
+  rememberMode(id);
+  if (current && current.messages.length) {
+    current.mode = id;
+    current.messages.push({ role: 'note', content: 'Switched to ' + modeById(id).label });
+    addNote('Switched to ' + modeById(id).label);
+    saveCurrent();
+  }
+  renderModes();
+  const chipsEl = wrap.querySelector('.landing .chips');
+  if (chipsEl) renderChips(chipsEl);
+  input.focus();
+}
+
+sendBtn.onclick = () => send();
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 200) + 'px';
+});
+
+function placeComposer(where) {   // 'landing' | 'footer'
+  // The composer is moved, never replaced, so it survives any sequence of
+  // landing -> chat -> new chat -> old chat navigation.
+  if (where === 'footer') {
+    document.getElementById('footerSlot').appendChild(composer);
+    footer.classList.remove('hidden');
+  } else {
+    footer.classList.add('hidden');
+    const slot = wrap.querySelector('.landing .composer-slot');
+    if (slot) slot.appendChild(composer);
+  }
+  renderModes();
+  input.focus();
+}
+
+/* ---------- storage (server-side, on disk) ---------- */
+async function loadChatList() {
+  try { chats = await (await fetch('/api/chats')).json(); } catch { chats = []; }
+}
+async function loadChat(id) {
+  const r = await fetch('/api/chats/' + id);
+  return r.ok ? await r.json() : null;
+}
+async function saveCurrent() {
+  if (!current) return;
+  try {
+    await fetch('/api/chats/' + current.id, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(current)
+    });
+  } catch (e) { console.warn('could not save chat', e); }
+  await loadChatList();
+}
+async function removeChat(id) {
+  try { await fetch('/api/chats/' + id, { method: 'DELETE' }); } catch (e) { console.warn(e); }
+  await loadChatList();
+}
+
+/* ---------- health ---------- */
+async function checkHealth() {
+  try {
+    const d = await (await fetch('/health')).json();
+    const ok = d.ollama === 'ok';
+    dot.className = 'dot ' + (ok ? 'ok' : 'bad');
+    statusEl.textContent = ok ? 'Running locally' : 'Model engine not running';
+  } catch {
+    dot.className = 'dot bad'; statusEl.textContent = 'Not connected';
+  }
+}
+checkHealth(); setInterval(checkHealth, 20000);
+
+/* ---------- rendering ---------- */
+function scroll() { log.scrollTop = log.scrollHeight; }
+
+marked.setOptions({ gfm: true, breaks: true });
+
+function renderRich(el, text) {
+  // Protect math from the markdown parser, render markdown, then typeset math.
+  const holes = [];
+  const protectedText = text
+    .replace(/\$\$([\s\S]+?)\$\$/g, (_, m) => { holes.push({ d: true, m }); return `MATHHOLE${holes.length - 1}ENDHOLE`; })
+    .replace(/\\\[([\s\S]+?)\\\]/g, (_, m) => { holes.push({ d: true, m }); return `MATHHOLE${holes.length - 1}ENDHOLE`; })
+    .replace(/\\\(([\s\S]+?)\\\)/g, (_, m) => { holes.push({ d: false, m }); return `MATHHOLE${holes.length - 1}ENDHOLE`; })
+    .replace(/(^|[^\\$])\$([^$\n]+?)\$(?!\d)/g, (_, pre, m) => { holes.push({ d: false, m }); return `${pre}MATHHOLE${holes.length - 1}ENDHOLE`; });
+  let html = DOMPurify.sanitize(marked.parse(protectedText));
+  html = html.replace(/MATHHOLE(\d+)ENDHOLE/g, (_, i) => {
+    const h = holes[+i];
+    try { return katex.renderToString(h.m, { displayMode: h.d, throwOnError: false, strict: false }); }
+    catch { return (h.d ? '$$' : '$') + h.m + (h.d ? '$$' : '$'); }
+  });
+  el.innerHTML = html;
+}
+
+function renderLanding() {
+  wrap.innerHTML = `
+    <div class="landing">
+      <img src="/static/arch-logo.png" alt="The ARCH">
+      <p class="tag">Examining advanced computing, and its consequences, through humanities research.</p>
+      <p class="sub">Runs entirely on this computer. Nothing you type leaves the machine.</p>
+      <div class="composer-slot"></div>
+      <div class="chips"></div>
+    </div>`;
+  placeComposer('landing');
+  renderChips(wrap.querySelector('.landing .chips'));
+}
+
+function renderChips(el) {
+  el.innerHTML = '';
+  for (const c of (modeById(currentMode).chips || [])) {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.textContent = c;
+    el.appendChild(b);
+  }
+}
+
+function addNote(text) {
+  const el = document.createElement('div');
+  el.className = 'note'; el.textContent = text;
+  wrap.appendChild(el); scroll();
+}
+
+function sourcesEl(sources) {
+  const d = document.createElement('details');
+  d.className = 'sources';
+  const sum = document.createElement('summary');
+  sum.textContent = sources.length === 1 ? '1 source' : sources.length + ' sources';
+  const ol = document.createElement('ol');
+  for (const s of sources) {
+    const li = document.createElement('li');
+    li.textContent = s.title + (s.page ? ', p.' + s.page : '') + (s.heading ? ' — ' + s.heading : '');
+    ol.appendChild(li);
+  }
+  d.appendChild(sum); d.appendChild(ol);
+  return d;
+}
+
+function addMsg(role, text, kind, sources, mode) {
+  const el = document.createElement('div');
+  el.className = 'msg ' + role + (kind ? ' ' + kind : '');
+  const who = document.createElement('div');
+  who.className = 'who'; who.textContent = role === 'user' ? 'You' : 'ARCH Assistant';
+  if (role === 'bot' && mode && mode !== DEFAULT_MODE) {
+    const t = document.createElement('span');
+    t.className = 'mtag'; t.textContent = ' · ' + modeById(mode).label;
+    who.appendChild(t);
+  }
+  const body = document.createElement('div');
+  body.className = 'body';
+  if (text === null) body.innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
+  else if (role === 'bot' && !kind) renderRich(body, text);
+  else body.textContent = text;
+  el.appendChild(who); el.appendChild(body);
+  if (sources && sources.length) el.appendChild(sourcesEl(sources));
+  wrap.appendChild(el);
+  scroll();
+  return body;
+}
+
+function renderChat() {
+  if (!current || current.messages.length === 0) {
+    if (!current) currentMode = recalledMode();
+    renderLanding(); return;
+  }
+  currentMode = MODES.some(m => m.id === current.mode) ? current.mode : DEFAULT_MODE;
+  wrap.innerHTML = '';
+  placeComposer('footer');
+  for (const m of current.messages) {
+    if (m.role === 'note') { addNote(m.content); continue; }
+    addMsg(m.role === 'user' ? 'user' : 'bot', m.content, m.blocked ? 'blocked' : '', m.sources, m.mode);
+  }
+}
+
+function renderHistory() {
+  histEl.innerHTML = '';
+  if (chats.length === 0) { histEl.innerHTML = '<div class="hlabel">Chats</div><div class="hempty">No chats yet.</div>'; return; }
+  histEl.innerHTML = '<div class="hlabel">Chats</div>';
+  for (const c of chats) {
+    const item = document.createElement('div');
+    item.className = 'hitem' + (current && c.id === current.id ? ' active' : '');
+    const t = document.createElement('span'); t.className = 't'; t.textContent = c.title || 'Untitled';
+    const x = document.createElement('button'); x.className = 'x'; x.textContent = '×'; x.title = 'Delete chat';
+    x.onclick = (e) => { e.stopPropagation(); deleteChat(c.id); };
+    item.appendChild(t); item.appendChild(x);
+    item.onclick = () => openChat(c.id);
+    histEl.appendChild(item);
+  }
+}
+
+/* ---------- chat actions ---------- */
+function newChat() { current = null; renderChat(); renderHistory(); }
+async function openChat(id) { current = await loadChat(id); renderChat(); renderHistory(); }
+async function deleteChat(id) {
+  await removeChat(id);
+  if (current && current.id === id) current = null;
+  renderChat(); renderHistory();
+}
+function ensureChat(firstText) {
+  if (current) return;
+  current = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+    title: firstText.slice(0, 48) + (firstText.length > 48 ? '\u2026' : ''),
+    created: Date.now(), mode: currentMode, messages: []
+  };
+}
+
+async function send(text) {
+  if (busy) return;
+  text = (text !== undefined ? text : input.value).trim();
+  if (!text) return;
+
+  busy = true; sendBtn.disabled = true; modesEl.querySelectorAll('.mode').forEach(b => b.disabled = true);
+  input.value = ''; input.style.height = 'auto';
+
+  const wasLanding = !current || current.messages.length === 0;
+  ensureChat(text);
+  if (wasLanding) { wrap.innerHTML = ''; placeComposer('footer'); }
+
+  addMsg('user', text);
+  current.messages.push({ role: 'user', content: text });
+  await saveCurrent(); renderHistory();
+
+  const mode = currentMode;
+  current.mode = mode;
+  const target = addMsg('bot', null, '', null, mode);
+  const context = current.messages
+    .filter(m => !m.blocked && (m.role === 'user' || m.role === 'assistant'))
+    .map(m => ({ role: m.role, content: m.content }));
+
+  try {
+    const r = await fetch('/v1/chat/completions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'cvex-ai', messages: context, mode })
+    });
+    if (!r.ok) throw new Error('server returned ' + r.status);
+    const data = await r.json();
+    const reply = data.choices[0].message.content;
+    const sources = data.sources || [];
+    const blocked = REFUSALS.some(x => reply.trim().startsWith(x));
+    if (blocked) target.textContent = reply; else renderRich(target, reply);
+    if (!blocked && sources.length) target.parentNode.appendChild(sourcesEl(sources));
+    if (blocked) {
+      target.parentNode.classList.add('blocked');
+      current.messages[current.messages.length - 1].blocked = true;
+      current.messages.push({ role: 'assistant', content: reply, blocked: true, mode });
+    } else {
+      current.messages.push({ role: 'assistant', content: reply, sources, mode });
+    }
+  } catch (e) {
+    target.textContent = "Couldn't reach the assistant. Make sure it's running, then try again.";
+    target.parentNode.classList.add('error');
+    current.messages.pop();
+  }
+
+  await saveCurrent(); renderHistory();
+  busy = false; sendBtn.disabled = false; modesEl.querySelectorAll('.mode').forEach(b => b.disabled = false);
+  input.focus(); scroll();
+}
+
+/* ---------- wiring ---------- */
+document.getElementById('newchat').onclick = newChat;
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('chip')) send(e.target.textContent);
+});
+
+loadModes().then(() => {
+  currentMode = recalledMode();
+  renderChat();
+  loadChatList().then(renderHistory);
+});
+</script>
+</body>
+</html>

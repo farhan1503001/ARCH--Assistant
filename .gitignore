@@ -1,0 +1,22 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Logs and test output
+guardrail.log
+results.csv
+modes_live_results.md
+
+# Downloaded model files (about 1 GB; re-create with rag/download_reranker.py)
+models/
+
+# Books, papers and course files: large, and many are copyrighted.
+# Only the list of web sources is tracked.
+docs/*
+!docs/urls.txt
+
+# Bundles and editor files
+*.zip
+.vscode/
+.idea/

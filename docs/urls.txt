@@ -1,0 +1,18 @@
+# One entry per line. Lines starting with # are ignored.
+#
+#   <url>                                 index a single page
+#   site <start-url> <url-prefix> [max]   crawl from start-url, following links that begin
+#                                         with url-prefix, up to max pages (default 100)
+
+# Hugging Face LLM course: do NOT crawl the website (pages are huge and slow). Instead download
+# the course source from GitHub (github.com/huggingface/course -> Code -> Download ZIP), copy the
+# chapters\en folder into docs\nlp\hf-course\, and ingest.py will read the .mdx files directly.
+# site https://huggingface.co/learn/llm-course/chapter1/1 https://huggingface.co/learn/llm-course/ 150
+
+# Programming Historian, English lessons. The index lists ~100 lessons; many are not about
+# text or network analysis. Either crawl everything (below) or replace with the specific
+# lesson URLs you want, copied from https://programminghistorian.org/en/lessons/
+site https://programminghistorian.org/en/lessons/ https://programminghistorian.org/en/lessons/ 150
+
+# Distill: A Gentle Introduction to Graph Neural Networks
+https://distill.pub/2021/gnn-intro/

@@ -1,0 +1,25 @@
+# Install with:  pip install -r requirements.txt
+fastapi>=0.115
+uvicorn[standard]>=0.30
+httpx>=0.27
+
+# Document search (RAG)
+chromadb>=0.5
+pymupdf>=1.24
+python-docx>=1.1
+beautifulsoup4>=4.12
+lxml>=5.0
+sentence-transformers>=3.0
+
+# IMPORTANT - GPU build of PyTorch.
+# sentence-transformers pulls in the CPU-only PyTorch on Windows, which makes the
+# reranker take ~10 s per question instead of under 1 s. After the line above, run:
+#     pip uninstall -y torch
+#     pip install torch --index-url https://download.pytorch.org/whl/<cuda-tag>
+# using the same <cuda-tag> that worked on the first machine, then confirm with:
+#     python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+# The proxy logs "reranker is on CPU" at startup if this step was missed.
+#
+# For the other machines, copy exact versions from the working one:
+#     pip freeze > requirements.lock.txt      (on the working machine)
+#     pip install -r requirements.lock.txt    (on each new machine)

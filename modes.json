@@ -1,0 +1,54 @@
+{
+  "_comment": "UI text for each learning mode. The behaviour of each mode is defined in the Modelfile (LEARNING MODES); this file only controls what students see. The ids must match the mode names in the Modelfile. Restart the proxy after editing.",
+  "default": "explain",
+  "modes": [
+    {
+      "id": "explain",
+      "label": "Explain",
+      "description": "Clear, complete explanations, concept first.",
+      "placeholder": "Ask anything…",
+      "chips": [
+        "What is ARCH?",
+        "Explain topic modeling simply",
+        "What is a graph neural network?",
+        "Explain the handshake lemma"
+      ]
+    },
+    {
+      "id": "tutor",
+      "label": "Tutor",
+      "description": "Guides you with questions and hints instead of giving the answer.",
+      "placeholder": "What are you working on? I'll guide you through it…",
+      "chips": [
+        "Help me prove the handshake lemma",
+        "I don't understand message passing in GNNs",
+        "Help me work out TF-IDF for a tiny example",
+        "Why does a tree with n vertices have n−1 edges?"
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "description": "Questions one at a time, graded, with a running score.",
+      "placeholder": "What should I quiz you on?",
+      "chips": [
+        "Quiz me on graph theory basics",
+        "Quiz me on GraphSAGE",
+        "Quiz me on tokenization",
+        "Quiz me on network centrality"
+      ]
+    },
+    {
+      "id": "summarize",
+      "label": "Summarize",
+      "description": "Structured summary of a topic, paper, or text you paste.",
+      "placeholder": "What should I summarize? Name a topic or paper, or paste text…",
+      "chips": [
+        "Summarize the GraphSAGE paper",
+        "Summarize the main ideas of Data Feminism",
+        "Summarize how graph attention networks work",
+        "Summarize The Network Turn"
+      ]
+    }
+  ]
+}
