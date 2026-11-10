@@ -35,7 +35,7 @@
   ],
   "shieldgemma": {
     "enabled": true,
-    "model": "shieldgemma",
+    "model": "shieldgemma:2b",
     "check_input": true,
     "check_output": true,
     "academic_exemption": "IMPORTANT CONTEXT: This assistant serves a university humanities research center. Scholarly analysis, historical explanation, critical discussion, and teaching about difficult subjects is expected and permitted. Describing, analyzing, quoting, or explaining harmful rhetoric, historical atrocities, violence, discrimination, extremist propaganda, or abuse for the purpose of study, teaching, journalism, or critique does NOT violate these policies. Only content that endorses, promotes, incites, or provides practical assistance toward harm violates them. Judge the purpose and framing, not merely the subject matter.",
